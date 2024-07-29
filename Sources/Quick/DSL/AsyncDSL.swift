@@ -80,6 +80,29 @@ extension AsyncDSLUser {
     public static func beforeEach(_ closure: @escaping BeforeExampleWithMetadataAsyncClosure) {
         AsyncWorld.sharedWorld.beforeEach(closure: closure)
     }
+    
+    /**
+     Defines a closure to be run prior to each example in the current example
+     group. This closure is not run for pending or otherwise disabled examples.
+     An example group may contain an unlimited number of beforeEach. They'll be
+     run in the order they're defined, but you shouldn't rely on that behavior.
+
+     - parameter closure: The closure to be run prior to each example.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func beforeEachMain(_ closure: @escaping BeforeExampleMainAsyncClosure) {
+        AsyncWorld.sharedWorld.beforeEach(closure)
+    }
+
+    /**
+     Identical to Quick.DSL.beforeEach, except the closure is provided with
+     metadata on the example that the closure is being run prior to.
+     - parameter closure: The closure to be run prior to each example.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func beforeEachMain(_ closure: @escaping BeforeExampleWithMetadataMainAsyncClosure) {
+        AsyncWorld.sharedWorld.beforeEach(closure: closure)
+    }
 
     // MARK: - AfterEach
     /**
@@ -99,6 +122,28 @@ extension AsyncDSLUser {
      metadata on the example that the closure is being run after.
      */
     public static func afterEach(_ closure: @escaping AfterExampleWithMetadataAsyncClosure) {
+        AsyncWorld.sharedWorld.afterEach(closure: closure)
+    }
+
+    /**
+     Defines a closure to be run after each example in the current example
+     group. This closure is not run for pending or otherwise disabled examples.
+     An example group may contain an unlimited number of afterEach. They'll be
+     run in the order they're defined, but you shouldn't rely on that behavior.
+
+     - parameter closure: The closure to be run after each example.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func afterEachMain(_ closure: @escaping AfterExampleMainAsyncClosure) {
+        AsyncWorld.sharedWorld.afterEach(closure)
+    }
+
+    /**
+     Identical to Quick.DSL.afterEach, except the closure is provided with
+     metadata on the example that the closure is being run after.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func afterEachMain(_ closure: @escaping AfterExampleWithMetadataMainAsyncClosure) {
         AsyncWorld.sharedWorld.afterEach(closure: closure)
     }
 
@@ -147,6 +192,53 @@ extension AsyncDSLUser {
     public static func aroundEach(_ closure: @escaping AroundExampleWithMetadataAsyncClosure) {
         AsyncWorld.sharedWorld.aroundEach(closure)
     }
+    
+    /**
+     Defines a closure to that wraps each example in the current example
+     group. This closure is not run for pending or otherwise disabled examples.
+
+     The closure you pass to aroundEach receives a callback as its argument, which
+     it MUST call exactly one for the example to run properly:
+
+     aroundEach { runExample in
+     doSomeSetup()
+     runExample()
+     doSomeCleanup()
+     }
+
+     This callback is particularly useful for test decartions that can’t split
+     into a separate beforeEach and afterEach. For example, running each example
+     in its own autorelease pool (provided by Task) requires aroundEach:
+
+     aroundEach { runExample in
+     autoreleasepool {
+     runExample()
+     }
+     checkObjectsNoLongerRetained()
+     }
+
+     You can also use aroundEach to guarantee proper nesting of setup and cleanup
+     operations in situations where their relative order matters.
+
+     An example group may contain an unlimited number of aroundEach callbacks.
+     They will nest inside each other, with the first declared in the group
+     nested at the outermost level.
+
+     - parameter closure: The closure that wraps around each example.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func aroundEachMain(_ closure: @escaping AroundExampleMainAsyncClosure) {
+        AsyncWorld.sharedWorld.aroundEach(closure)
+    }
+
+    /**
+     Identical to Quick.DSL.aroundEach, except the closure receives metadata
+     about the example that the closure wraps.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func aroundEachMain(_ closure: @escaping AroundExampleWithMetadataMainAsyncClosure) {
+        AsyncWorld.sharedWorld.aroundEach(closure)
+    }
 
     // MARK: - Examples
     /**
@@ -172,6 +264,34 @@ extension AsyncDSLUser {
      - parameter line: The line containing the example. A sensible default is provided.
      */
     public static func it(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping () async throws -> Void) {
+        AsyncWorld.sharedWorld.it(description, file: file, line: line, closure: closure)
+    }
+    
+    /**
+     Defines a closure to be run prior to each example but after any beforeEach blocks.
+     This closure is not run for pending or otherwise disabled examples.
+     An example group may contain an unlimited number of justBeforeEach. They'll be
+     run in the order they're defined, but you shouldn't rely on that behavior.
+
+     - parameter closure: The closure to be run prior to each example and after any beforeEach blocks
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+
+    public static func justBeforeEachMain(_ closure: @escaping BeforeExampleMainAsyncClosure) {
+        AsyncWorld.sharedWorld.justBeforeEach(closure)
+    }
+
+    /**
+     Defines an example. Examples use assertions to demonstrate how code should
+     behave. These are like "tests" in XCTest.
+
+     - parameter description: An arbitrary string describing what the example is meant to specify.
+     - parameter closure: A closure that can contain assertions.
+     - parameter file: The absolute path to the file containing the example. A sensible default is provided.
+     - parameter line: The line containing the example. A sensible default is provided.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func itMain(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping @MainActor () async throws -> Void) {
         AsyncWorld.sharedWorld.it(description, file: file, line: line, closure: closure)
     }
 
@@ -219,6 +339,18 @@ extension AsyncDSLUser {
     public static func pending(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping () async throws -> Void) {
         AsyncWorld.sharedWorld.pending(description, file: file, line: line, closure: closure)
     }
+    
+    /**
+     Defines an example or example group that should not be executed. Use `pending` to temporarily disable
+     examples or groups that should not be run yet.
+
+     - parameter description: An arbitrary string describing the example or example group.
+     - parameter closure: A closure that will not be evaluated.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func pendingMain(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping @MainActor () async throws -> Void) {
+        AsyncWorld.sharedWorld.pending(description, file: file, line: line, closure: closure)
+    }
 
     // MARK: - Defocused
     /**
@@ -242,6 +374,15 @@ extension AsyncDSLUser {
      This disables the example and ensures the code within the closure is never run.
      */
     public static func xit(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping () async throws -> Void) {
+        AsyncWorld.sharedWorld.xit(description, file: file, line: line, closure: closure)
+    }
+    
+    /**
+     Use this to quickly mark an `it` closure as pending.
+     This disables the example and ensures the code within the closure is never run.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func xitMain(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping @MainActor () async throws -> Void) {
         AsyncWorld.sharedWorld.xit(description, file: file, line: line, closure: closure)
     }
 
@@ -275,6 +416,15 @@ extension AsyncDSLUser {
      If any examples in the test suite are focused, only those examples are executed.
      */
     public static func fit(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping () async throws -> Void) {
+        AsyncWorld.sharedWorld.fit(description, file: file, line: line, closure: closure)
+    }
+    
+    /**
+     Use this to quickly focus an `it` closure, focusing the example.
+     If any examples in the test suite are focused, only those examples are executed.
+     - note: The code to be executed is isolated to the Main Actor.
+     */
+    public static func fitMain(_ description: String, file: FileString = #file, line: UInt = #line, closure: @escaping @MainActor () async throws -> Void) {
         AsyncWorld.sharedWorld.fit(description, file: file, line: line, closure: closure)
     }
 

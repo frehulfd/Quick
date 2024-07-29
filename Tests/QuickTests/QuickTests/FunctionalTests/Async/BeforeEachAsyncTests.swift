@@ -31,6 +31,11 @@ private struct BeforeEachError: Error {}
 
 private var isRunningFunctionalTests = false
 
+@MainActor
+private class MainActorClass {
+    var field = 0
+}
+
 class FunctionalTests_BeforeEachAsyncSpec: AsyncSpec {
     override class func spec() {
 
@@ -106,6 +111,33 @@ class FunctionalTests_BeforeEachAsyncSpec: AsyncSpec {
             }
         }
 #endif
+        describe("main isolation") {
+            beforeEachMain {
+                _ = MainActorClass()
+                MainActor.assertIsolated()
+                throwingBeforeEachOrder.append(.outerOne)
+            }
+            
+            beforeEachMain { _ in
+                _ = MainActorClass()
+                MainActor.assertIsolated()
+                throwingBeforeEachOrder.append(.outerTwo)
+            }
+            
+            afterEachMain {
+                throwingBeforeEachOrder.append(.afterEach)
+            }
+            
+            afterEachMain { _ in
+                throwingBeforeEachOrder.append(.afterEach)
+            }
+            
+            itMain("does not run tests") {
+                if isRunningFunctionalTests {
+                    fail("tests should not be run.")
+                }
+            }
+        }
     }
 }
 
@@ -118,6 +150,20 @@ class FunctionalTests_BeforeEachSkippingAsyncSpec: AsyncSpec {
                 throw XCTSkip("this test is intentionally skipped")
             }
 
+            afterEach {
+                skippingBeforeEachOrder.append(.afterEach)
+            }
+
+            it("skips this test") {
+                skippingBeforeEachOrder.append(.inner)
+            }
+        }
+        
+        describe("skipping from MainActor") {
+            beforeEachMain {
+                throw XCTSkip("this test is intentionally skipped")
+            }
+            
             afterEach {
                 skippingBeforeEachOrder.append(.afterEach)
             }
@@ -220,7 +266,9 @@ final class BeforeEachAsyncTests: XCTestCase, XCTestCaseProvider {
             // and then repeat because there are two tests.
             .outerOne,
             .outerTwo,
-            .afterEach
+            .afterEach,
+            // Main Actor tests
+            .outerOne, .outerTwo, .afterEach, .afterEach
         ]
 
         XCTAssertEqual(
@@ -234,13 +282,13 @@ final class BeforeEachAsyncTests: XCTestCase, XCTestCaseProvider {
 
         let result = qck_runSpec(FunctionalTests_BeforeEachSkippingAsyncSpec.self)!
         XCTAssertTrue(result.hasSucceeded)
-        XCTAssertEqual(result.executionCount, 1)
-        XCTAssertEqual(result.skipCount, 1)
+        XCTAssertEqual(result.executionCount, 2)
+        XCTAssertEqual(result.skipCount, 2)
         XCTAssertEqual(result.totalFailureCount, 0)
 
         XCTAssertEqual(
             skippingBeforeEachOrder,
-            [.afterEach] // it still runs the afterEachs
+            [.afterEach, .afterEach] // it still runs the afterEachs
         )
     }
 
